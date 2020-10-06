@@ -27,14 +27,22 @@ def load_movie_documents():
     for fileid in nltk.corpus.movie_reviews.fileids():
         # get the raw text
         text = movie_reviews.raw(fileid)
-
         category = "pos" if fileid.startswith("pos/") else "neg"
+
         document = []
-        # get all the sentences
-        for sentence in nltk.sent_tokenize(text):
-            tokens = nltk.word_tokenize(sentence)
-            # now we have a list of tokens in "tokens"
-            document.extend(tokens)
+        # We can just split the string on spaces, since it's already been
+        # preprocessed.
+        document = text.split()
+
+        # The on-disk data has already been sentence split and tokenized!
+        # So we don't need to do any of this! But if we got raw normal text, we
+        # might want to do something like the following.
+        ## # get all the sentences
+        ## for sentence in nltk.sent_tokenize(text):
+        ##     tokens = nltk.word_tokenize(sentence)
+        ##     # now we have a list of tokens in "tokens"
+        ##     document.extend(tokens)
+
         pairs.append((category, document))
     return pairs
 
@@ -67,7 +75,6 @@ def train_naive_bayes(D, C):
                 bigdoc.extend(tokens)
         print("bigdoc has {} tokens for category {}".format(len(bigdoc), cat))
         count.update(bigdoc)
-        print("(the,{}) = {}".format(cat, count["the"]))
 
         # no need to compute this in the loop, will be the same every time
         denominator = sum((count[wprime] + 1) for wprime in V)
@@ -78,7 +85,6 @@ def train_naive_bayes(D, C):
 
 def test_naive_bayes(testdoc, logpriors, loglikelihoods, C, V):
     """Given testdoc, a list of tokens, return the most likely class."""
-    print("TESTING: {}".format(" ".join(testdoc[:10])))
     bestscore = float("-inf")
     # http://hrwiki.org/w/index.php?title=Flagrant_System_Error&redirect=no
     bestclass = "Flagrant System Error"
@@ -87,26 +93,49 @@ def test_naive_bayes(testdoc, logpriors, loglikelihoods, C, V):
         for tok in testdoc:
             if tok in V:
                 sum += loglikelihoods[(tok, c)]
-
-        print("score for {}: {}".format(c, sum))
+        # print("score for {}: {}".format(c, sum))
         if sum > bestscore:
             bestscore = sum
             bestclass = c
     return bestclass
 
+def split_training_test(document_pairs):
+    """
+    Given a list of things, split them into training and test.
+    Returns a pair of lists: training, test.
+
+    Simplest split: every 10th thing is in the test set.
+    """
+    training = []
+    test = []
+    for i, pair in enumerate(document_pairs):
+        if i % 10 == 9:
+            training.append(pair)
+        else:
+            test.append(pair)
+    return training, test
+
 def main():
     data_init()
     document_pairs = load_movie_documents()
-    classes = set(c for c,_ in document_pairs)
 
-    logpriors, loglikelihoods, V = train_naive_bayes(document_pairs, classes)
+    training, test = split_training_test(document_pairs)
 
-    guess = test_naive_bayes("boring no fun uninspired long".split(),
-                             logpriors, loglikelihoods, classes, V)
-    print(guess)
-    guess = test_naive_bayes("amazing exciting fun".split(),
-                             logpriors, loglikelihoods, classes, V)
-    print(guess)
+    classes = set(c for c,_ in training)
 
+    logpriors, loglikelihoods, V = train_naive_bayes(training, classes)
+    print("TRAINED!!")
+
+    ncorrect = 0
+    for (true_c, tokens) in test:
+        guess = test_naive_bayes(tokens, logpriors, loglikelihoods, classes, V)
+        if guess == true_c:
+            ncorrect += 1
+        # print("guess: {}, actual: {}, tokens: {}...".format(guess,
+        #                                                     true_c,
+        #                                                     tokens[:5]))
+    print()
+    print("FINAL ACCURACY: {} / {} = {:0.2f}".format(
+          ncorrect, len(test), ncorrect / len(test)))
 
 if __name__ == "__main__": main()
