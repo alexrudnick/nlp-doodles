@@ -7,3 +7,4 @@ pip install numpy
 pip install scipy
 pip install scikit-learn
 pip install nltk
+pip install matplotlib
