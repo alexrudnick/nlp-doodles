@@ -179,10 +179,18 @@ def main():
     initial_weights = np.random.default_rng().standard_normal(len(V) + 1)
     # or just zeros, it doesn't seem to matter much
     # initial_weights = np.zeros(len(V) + 1)
-    trained_weights = simple_SGD(training_pairs, initial_weights)
+    trained_weights = simple_SGD(training_pairs, initial_weights,
+                                 max_iters=100*1000)
 
     ncorrect = 0
     for (true_c, example) in testing_pairs:
+        if False:
+            # enable this block for printing out examples just before test time
+            words = []
+            for index in range(len(example) - 1):
+                if example[index] > 0:
+                    words.append(indices_to_words[index])
+            print(words)
         estimate = prob_positive(example, trained_weights)
         guess = round(estimate)
         if guess == true_c:
