@@ -16,6 +16,8 @@ import nltk
 from collections import defaultdict
 from nltk.corpus import movie_reviews
 
+import classifier_util
+
 def data_init():
     try:
         nltk.data.find("tokenizers/punkt")
@@ -41,22 +43,6 @@ def load_movie_documents():
         pairs.append((category, document))
     return pairs
 
-def split_training_test(document_pairs):
-    """
-    Given a list of things, split them into training and test.
-    Returns a pair of lists: training, test.
-
-    Simplest split: every 10th thing is in the test set.
-    """
-    training = []
-    test = []
-    for i, pair in enumerate(document_pairs):
-        if i % 10 == 9:
-            training.append(pair)
-        else:
-            test.append(pair)
-    return training, test
-
 def extract_features(tokens):
     """Returns a dictionary from features to counts.
 
@@ -72,7 +58,7 @@ def main():
     data_init()
     document_pairs = load_movie_documents()
 
-    training, test = split_training_test(document_pairs)
+    training, test = classifier_util.split_training_test(document_pairs)
     training_instances = [(extract_features(tokens), c)
                           for (c, tokens) in training]
     classifier = nltk.classify.NaiveBayesClassifier.train(training_instances)

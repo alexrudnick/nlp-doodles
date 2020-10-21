@@ -23,10 +23,15 @@ import numpy as np
 from collections import defaultdict
 from collections import Counter
 from math import log2
-
 from nltk.corpus import movie_reviews
 
-LEARNING_RATE = 0.1
+import classifier_util
+
+# adding regularization, are we?
+LAMBDA_2 = 1e-5
+LAMBDA_1 = 1e-5
+
+LEARNING_RATE = 0.005
 
 def data_init():
     try:
@@ -82,22 +87,6 @@ def tokens_to_example(tokens, V):
             example[index] += 1
     return example
 
-def split_training_test(document_pairs):
-    """
-    Given a list of things, split them into training and test.
-    Returns a pair of lists: training, test.
-
-    Simplest split: every 10th thing is in the test set.
-    """
-    training = []
-    test = []
-    for i, pair in enumerate(document_pairs):
-        if i % 10 == 9:
-            training.append(pair)
-        else:
-            test.append(pair)
-    return training, test
-
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
@@ -121,10 +110,10 @@ def gradient_for_one_example(example, weights, y):
     """
 
     difference = sigmoid(example.dot(weights)) - y
-    ## XXX: can I write this in a more array style?
+    l2_penalty = (2 * LAMBDA_2 * weights)
+    l1_penalty = (LAMBDA_1 * np.sign(weights))
 
-    # np.array([difference * xj for xj in example])
-    gradient = example * difference
+    gradient = example * difference + l1_penalty + l2_penalty
     return gradient
 
 def new_weights_for_one_example(example, weights, y):
@@ -146,7 +135,38 @@ def simple_SGD(training_pairs, initial_weights, max_iters=(100 * 1000)):
         i = iter % len(training_pairs) 
         true_y, example = training_pairs[i]
         weights = new_weights_for_one_example(example, weights, true_y)
+
+
+        if (iter % 1000) == 0:
+            _, acc = get_accuracy(my_training_pairs, weights)
+            print("iteration {}, training accuracy: {}"
+                  .format(iter, acc))
     return weights
+
+def batch_SGD(training_pairs, initial_weights, max_passes=100):
+    """Build up a gradient for all the training pairs, apply it, and then do it
+    again and again.
+    Returns a new set of weights."""
+
+    weights = np.copy(initial_weights)
+    my_training_pairs = copy.copy(training_pairs)
+    random.shuffle(my_training_pairs)
+
+    best_acc = 0
+    best_weights = None
+    total_gradient = np.zeros(weights.size)
+    for iter in range(max_passes):
+        for true_y, example in training_pairs:
+            gradient = gradient_for_one_example(example, weights, true_y)
+            total_gradient += gradient
+
+        weights = weights - LEARNING_RATE * (total_gradient / len(training_pairs))
+        _, acc = get_accuracy(my_training_pairs, weights)
+        print("batch {}, training accuracy: {}" .format(iter, acc))
+        if acc > best_acc:
+            best_acc = acc
+            best_weights = weights
+    return best_weights
 
 def prob_positive(example, weights):
     """Takes example and weights, both of which should be numpy arrays.
@@ -155,12 +175,23 @@ def prob_positive(example, weights):
     """
     return sigmoid(example.dot(weights))
 
+def get_accuracy(pairs, trained_weights):
+    ncorrect = 0
+    for (true_c, example) in pairs:
+        estimate = prob_positive(example, trained_weights)
+        guess = round(estimate)
+        if guess == true_c:
+            ncorrect += 1
+    return (ncorrect, ncorrect / len(pairs))
+
 def main():
     data_init()
     document_pairs = load_movie_documents()
-    training, test = split_training_test(document_pairs)
+    # document_pairs = classifier_util.load_binary_toy_documents()
+    training, test = classifier_util.split_training_test(document_pairs)
 
-    classes = set(c for c,_ in training)
+    print("got {} training instances, {} test instances"
+          .format(len(training), len(test)))
 
     V = extract_vocabulary(training)
     indices_to_words = {V[word] : word for word in V}
@@ -179,36 +210,25 @@ def main():
     initial_weights = np.random.default_rng().standard_normal(len(V) + 1)
     # or just zeros, it doesn't seem to matter much
     # initial_weights = np.zeros(len(V) + 1)
-    trained_weights = simple_SGD(training_pairs, initial_weights,
-                                 max_iters=100*1000)
+    trained_weights = batch_SGD(training_pairs, initial_weights,
+                                 max_passes=200)
+    print(trained_weights)
+    ncorrect, accuracy = get_accuracy(testing_pairs, trained_weights)
 
-    ncorrect = 0
-    for (true_c, example) in testing_pairs:
-        if False:
-            # enable this block for printing out examples just before test time
-            words = []
-            for index in range(len(example) - 1):
-                if example[index] > 0:
-                    words.append(indices_to_words[index])
-            print(words)
-        estimate = prob_positive(example, trained_weights)
-        guess = round(estimate)
-        if guess == true_c:
-            ncorrect += 1
-    print()
     print("FINAL ACCURACY: {} / {} = {:0.2f}".format(
-          ncorrect, len(test), ncorrect / len(test)))
+          ncorrect, len(test), accuracy))
 
-    print()
-    print("some words with high weights")
-    most_salient = np.argpartition(trained_weights, -50)[-50:]
-    for index in most_salient:
-        print(indices_to_words[index], trained_weights[index])
+    if False:
+        print()
+        print("some words with high weights")
+        most_salient = np.argpartition(trained_weights, -50)[-50:]
+        for index in most_salient:
+            print(indices_to_words[index], trained_weights[index])
 
-    print()
-    print("and some words with low weights")
-    most_salient = np.argpartition(trained_weights, 50)[:50]
-    for index in most_salient:
-        print(indices_to_words[index], trained_weights[index])
+        print()
+        print("and some words with low weights")
+        most_salient = np.argpartition(trained_weights, 50)[:50]
+        for index in most_salient:
+            print(indices_to_words[index], trained_weights[index])
 
 if __name__ == "__main__": main()
