@@ -2,6 +2,7 @@
 """
 
 import sklearn.datasets
+import numpy as np
 
 def split_training_test(document_pairs):
     """
@@ -42,4 +43,12 @@ def load_multinomial_toy_documents():
         out.append(("B", "a c".split()))
     for i in range(30):
         out.append(("C", "a b".split()))
+    return out
+
+def load_iris_example_pairs():
+    out = []
+    iris = sklearn.datasets.load_iris()
+    for example, label in zip(iris.data, iris.target):
+        # tack a 1 on the end here as a bias term.
+        out.append((label, np.append(example, [1])))
     return out

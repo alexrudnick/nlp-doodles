@@ -8,6 +8,7 @@ we're treating this as a multinomial classifier, with softmax.
 import copy
 import random
 import nltk
+import sys
 import numpy as np
 
 from collections import defaultdict
@@ -193,17 +194,39 @@ def document_classification_demo(document_pairs):
     print("FINAL ACCURACY: {} / {} = {:0.2f}".format(
           ncorrect, len(test), accuracy))
 
+def iris_train_demo():
+    iris_data = classifier_util.load_iris_example_pairs()
+    train_pairs, test_pairs = classifier_util.split_training_test(iris_data)
+
+    n_classes = 3
+    # 4 normal features with a bias term too.
+    n_features = 5
+
+    initial_weights = np.random.default_rng().standard_normal([n_classes,
+                                                               n_features])
+    trained_weights = batch_SGD(train_pairs, initial_weights, max_passes=2000)
+    print()
+    print("trained!")
+    print(trained_weights)
+    ncorrect, accuracy = get_accuracy(test_pairs, trained_weights)
+    print("FINAL ACCURACY: {} / {} = {:0.2f}".format(
+          ncorrect, len(test_pairs), accuracy))
+
 def main():
     data_init()
-    document_pairs = load_movie_documents()
-    document_classification_demo(document_pairs)
+
+    if len(sys.argv) > 1 and sys.argv[1] == "toy":
+        document_pairs = classifier_util.load_multinomial_toy_documents()
+        document_classification_demo(document_pairs)
+    elif len(sys.argv) > 1 and sys.argv[1] == "iris":
+        iris_train_demo()
+    else:
+        document_pairs = load_movie_documents()
+        document_classification_demo(document_pairs)
 
     # to cheat you can use these weights to solve the toy example exactly.
     # weights = np.array([[-10, 1, 1, 0],
     #                     [1, -10, 1, 0],
     #                     [1, 1, -10, 0]])
-    # document_pairs = classifier_util.load_multinomial_toy_documents()
-    # document_classification_demo(document_pairs)
-
 
 if __name__ == "__main__": main()
