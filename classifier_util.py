@@ -1,6 +1,8 @@
 """Little utility functions used in several classifier sketches.
 """
 
+import sklearn.datasets
+
 def split_training_test(document_pairs):
     """
     Given a list of things, split them into training and test.
@@ -30,4 +32,14 @@ def load_binary_toy_documents():
         ("neg", "c".split()),
         ("pos", "a".split()),
     ]
+    return out
+
+def load_multinomial_toy_documents():
+    out = []
+    for i in range(30):
+        out.append(("A", "b c".split()))
+    for i in range(30):
+        out.append(("B", "a c".split()))
+    for i in range(30):
+        out.append(("C", "a b".split()))
     return out
