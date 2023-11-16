@@ -34,7 +34,7 @@ def main():
                                    tol=THETOL))
 
     trainingset = load_dataset("trainingset.tsv")
-    testset = load_dataset("trainingset.tsv")
+    testset = load_dataset("testset.tsv")
 
     classifier.train([example for (example, text) in trainingset])
 
